@@ -308,17 +308,14 @@ biblioteca. Em Ajustes dá para pedir ao navegador que proteja esses dados.
   segundo, a chance de cada letra estar sendo cantada. O app encaixa o texto da letra
   nisso. As linhas que o modelo ouve com clareza servem de âncora para as outras.
 
-O histórico de decisões, os números medidos e os cuidados de manutenção estão em
-[documents/KARAOKE_ANDAMENTO.md](documents/KARAOKE_ANDAMENTO.md).
-
 ## Uso pessoal
 
 Baixar do YouTube fere os termos do serviço e a cópia de música protegida é zona
 cinzenta na lei. O app foi feito para uso seu: as músicas ficam no navegador de cada
 máquina e nada é enviado para fora. O site publicado não baixa nada; quem baixa é o
 ajudante, que roda no seu computador e só atende a própria página e os endereços que
-você autorizou. Não distribua o ajudante nem os arquivos baixados, e não abra o seu
-endereço publicado para outras pessoas junto com o ajudante.
+você autorizou. Não distribua os arquivos baixados, e não ofereça o seu endereço
+publicado, com o ajudante, como um serviço para outras pessoas.
 
 A sala é a única parte que aceita conexões de outros aparelhos, e só enquanto está
 aberta. Quem entra por ela recebe apenas a página do convidado: a biblioteca e o

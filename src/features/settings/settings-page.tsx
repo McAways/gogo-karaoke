@@ -384,7 +384,7 @@ export function SettingsPage() {
             para fora. As letras vêm do LRCLIB, um banco aberto mantido pela comunidade.
           </p>
           <p className="max-w-[62ch] text-soft">
-            Baixar do YouTube é para uso pessoal. Quem baixa é o ajudante, que roda no seu computador e só atende os endereços que você autorizou; o site em si não baixa nada. Não distribua o ajudante nem os arquivos baixados.
+            Baixar do YouTube é para uso pessoal. Quem baixa é o ajudante, que roda no seu computador e só atende os endereços que você autorizou; o site em si não baixa nada. Não distribua os arquivos baixados.
           </p>
         </Group>
       </div>
