@@ -8,7 +8,7 @@ import { randomUUID } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { decideAccess, helloAccess } from './access.ts'
-import { findFfmpeg, findYtDlp, updateYtDlp } from './binary.ts'
+import { findFfmpeg, findYtDlp, installFfmpeg, updateYtDlp } from './binary.ts'
 import type { ToolInfo } from './binary.ts'
 import { align, alignerInstalled, installAligner } from './aligner.ts'
 import { acceptHost, partyInfo, startParty, stopParty } from './party.ts'
@@ -168,6 +168,12 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 
   if (route === 'GET /spotify/link') return sendJson(res, 200, await spotifyTracks(url.searchParams.get('url') ?? ''))
 
+  if (route === 'POST /ffmpeg/install') {
+    await installFfmpegOnce()
+    await getTools(true)
+    return sendJson(res, 200, await status())
+  }
+
   if (route === 'POST /separator/install') {
     await installSeparatorOnce()
     return sendJson(res, 200, await status())
@@ -209,6 +215,20 @@ async function status() {
     separator: { installed: separatorInstalled() },
     aligner: { installed: alignerInstalled() },
   }
+}
+
+let installingFfmpeg: Promise<unknown> | null = null
+
+/** Baixa o ffmpeg próprio do ajudante, para a máquina que não tem um. Dois cliques não baixam duas vezes. */
+function installFfmpegOnce(): Promise<unknown> {
+  installingFfmpeg ??= installFfmpeg()
+    .catch((err: unknown) => {
+      throw new HelperError(502, err instanceof Error ? err.message : 'Não foi possível instalar o ffmpeg.')
+    })
+    .finally(() => {
+      installingFfmpeg = null
+    })
+  return installingFfmpeg
 }
 
 let installingAligner: Promise<void> | null = null

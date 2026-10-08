@@ -5,7 +5,7 @@ import { Button } from '@/components/button'
 import { Segmented, Slider, Switch } from '@/components/form'
 import { allowCommand, useHelperPresence } from '@/components/helper-guide'
 import { formatBytes } from '@/lib/format'
-import { appOrigin, forgetHelperStatus, helperStatus, installAligner, installSeparator, isPublishedApp, updateDownloader } from '@/lib/helper'
+import { appOrigin, forgetHelperStatus, helperStatus, installAligner, installFfmpeg, installSeparator, isPublishedApp, updateDownloader } from '@/lib/helper'
 import type { HelperStatus } from '@/lib/helper'
 import { requestPersistence, storageInfo } from '@/lib/storage/files'
 import type { StorageInfo } from '@/lib/storage/files'
@@ -88,6 +88,20 @@ export function SettingsPage() {
       toast(err instanceof Error ? err.message : 'Não foi possível atualizar o downloader.', 'erro')
     } finally {
       setUpdating(false)
+    }
+  }
+
+  const [installingFfmpeg, setInstallingFfmpeg] = useState(false)
+  const installOwnFfmpeg = async () => {
+    setInstallingFfmpeg(true)
+    try {
+      setHelper(await installFfmpeg())
+      forgetHelperStatus()
+      toast('ffmpeg instalado na pasta do ajudante.')
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Não foi possível instalar o ffmpeg.', 'erro')
+    } finally {
+      setInstallingFfmpeg(false)
     }
   }
 
@@ -216,7 +230,7 @@ export function SettingsPage() {
                   <code className="numeric text-ink">gogo-ajudante</code>.
                 </li>
                 <li>
-                  Traga essa pasta para cá e abra o arquivo <code className="numeric text-ink">instalar</code>. Ele confere o Node e o ffmpeg, baixa o que falta e pergunta o endereço deste app:{' '}
+                  Traga essa pasta para cá e abra o arquivo <code className="numeric text-ink">instalar</code> (no Mac, <code className="numeric text-ink">instalar.command</code>). Ele baixa sozinho o que a máquina não tiver, inclusive o Node e o ffmpeg, e pergunta o endereço deste app:{' '}
                   <code className="numeric text-ink">{appOrigin()}</code>
                 </li>
                 <li>
@@ -341,8 +355,10 @@ export function SettingsPage() {
             </Button>
           </Row>
           {helper && helper !== 'checking' && !helper.ffmpeg && (
-            <Row label="ffmpeg não encontrado" hint="Sem ele os vídeos vêm em 360p. Instale o ffmpeg e deixe-o no PATH para baixar em 720p. O áudio não é afetado.">
-              <span />
+            <Row label="ffmpeg não encontrado" hint="Sem ele os vídeos vêm em 360p e não dá para separar a voz nem sincronizar a letra pelo áudio. O app baixa uma cópia própria, de cerca de 80 MB, para a pasta do ajudante.">
+              <Button disabled={installingFfmpeg} onClick={() => void installOwnFfmpeg()}>
+                {installingFfmpeg ? 'Instalando' : 'Instalar'}
+              </Button>
             </Row>
           )}
         </Group>
