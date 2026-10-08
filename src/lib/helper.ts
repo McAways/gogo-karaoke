@@ -183,6 +183,11 @@ export async function updateDownloader(): Promise<HelperStatus> {
   return json<HelperStatus>(await call('/update', { method: 'POST' }))
 }
 
+/** Baixa um ffmpeg próprio do ajudante (cerca de 80 MB), para a máquina que não tem um. */
+export async function installFfmpeg(): Promise<HelperStatus> {
+  return json<HelperStatus>(await call('/ffmpeg/install', { method: 'POST' }))
+}
+
 /** Baixa o motor de separação de voz e o modelo (cerca de 60 MB) para helper/bin/separator. */
 export async function installSeparator(): Promise<HelperStatus> {
   return json<HelperStatus>(await call('/separator/install', { method: 'POST' }))

@@ -218,12 +218,20 @@ quem usa. Para ver como fica sem publicar: `npm run build` e `npm run serve:publ
 
 1. No computador principal: `npm run helper:pack -- --site=https://seu-endereco.vercel.app`.
    Sai a pasta `dist-helper/gogo-ajudante` (e um `.zip` dela), já autorizando o seu endereço.
-2. Leve a pasta para a outra máquina. Ela precisa do Node 22.18 ou mais novo.
-3. Abra o arquivo **instalar**. Ele baixa as dependências e o downloader, confere o
-   ffmpeg (e oferece instalar) e pergunta se o ajudante deve subir junto com o Windows.
-4. Abra o arquivo **iniciar** e deixe a janela aberta. Depois abra o endereço do app no
-   navegador. Na primeira vez o Chrome ou o Edge pergunta se o site pode acessar a rede
-   local: permita. É assim que o site fala com o ajudante.
+2. Leve a pasta para a outra máquina (para um Mac, leve o `.zip`: ele guarda a permissão
+   de executar). A máquina não precisa ter nada instalado, só internet.
+3. Abra o arquivo **instalar** (no Mac, `instalar.command`). Ele baixa sozinho o que
+   faltar: o Node, só para dentro da pasta e sem mexer no sistema, as dependências, o
+   ffmpeg e o downloader. No Windows, pergunta também se o ajudante deve subir junto com
+   o sistema.
+4. Abra o arquivo **iniciar** (no Mac, `iniciar.command`) e deixe a janela aberta. Depois
+   abra o endereço do app no Chrome ou no Edge. Na primeira vez o navegador pergunta se o
+   site pode acessar a rede local: permita. É assim que o site fala com o ajudante.
+
+No Mac, se o sistema disser que não pode abrir o arquivo, clique nele com o botão direito
+e escolha Abrir. Os arquivos do Mac ainda não foram rodados num Mac de verdade; os do
+Windows foram testados numa máquina simulada sem Node e sem ffmpeg. Para desinstalar,
+apague a pasta: tudo o que foi baixado fica dentro dela.
 
 Em Ajustes, "Ajudante", o app diz se achou o ajudante e, se não achou, o que falta.
 

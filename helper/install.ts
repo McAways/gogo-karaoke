@@ -1,4 +1,5 @@
-// Prepara este computador para rodar o ajudante. Aberto pelo arquivo "instalar".
+// Prepara este computador para rodar o ajudante. Aberto pelo arquivo "instalar", que antes disto
+// já garantiu um Node (o da máquina ou um baixado só para a pasta do ajudante).
 //
 // Uso: node helper/install.ts [--site=<endereço>] [--inicio=sim|nao] [--sem-perguntas]
 //
@@ -9,7 +10,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { createInterface } from 'node:readline/promises'
-import { findFfmpeg, findYtDlp, updateYtDlp } from './binary.ts'
+import { findFfmpeg, findYtDlp, installFfmpeg, npmCommand, updateYtDlp } from './binary.ts'
 import { allowSite, savedSites } from './sites.ts'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
@@ -33,10 +34,9 @@ async function ask(question: string): Promise<string> {
 
 const yes = (answer: string) => /^s(im)?$/i.test(answer)
 
-function run(command: string, commandArgs: string[]): Promise<number> {
+function run(command: string, commandArgs: string[], shell: boolean): Promise<number> {
   return new Promise((resolve) => {
-    // No Windows o npm e o winget são arquivos .cmd: precisam do interpretador de comandos.
-    const child = spawn(command, commandArgs, { cwd: ROOT, stdio: 'inherit', shell: IS_WINDOWS })
+    const child = spawn(command, commandArgs, { cwd: ROOT, stdio: 'inherit', shell })
     child.on('error', () => resolve(1))
     child.on('close', (code) => resolve(code ?? 1))
   })
@@ -58,11 +58,12 @@ let problems = 0
 step('Node')
 const [major, minor] = process.versions.node.split('.').map(Number)
 if (major < 22 || (major === 22 && minor < 18)) {
-  say(`Este computador tem o Node ${process.versions.node}. O ajudante precisa do 22.18 ou mais novo.`)
-  say('Atualize (winget install OpenJS.NodeJS.LTS, ou https://nodejs.org) e abra o instalador de novo.')
+  say(`Este instalador foi aberto com o Node ${process.versions.node}. O ajudante precisa do 22.18 ou mais novo.`)
+  say('Abra o arquivo "instalar" da pasta do ajudante: ele baixa um Node que serve, só para a pasta.')
   process.exit(1)
 }
-say(`Node ${process.versions.node}: serve.`)
+const ownNode = path.resolve(process.execPath).startsWith(path.join(ROOT, 'runtime'))
+say(`Node ${process.versions.node}: ${ownNode ? 'baixado para a pasta do ajudante (não mexe no resto do computador).' : 'o deste computador serve.'}`)
 
 // ---------- 2. Dependências ----------
 step('Dependências do ajudante')
@@ -70,8 +71,9 @@ if (existsSync(path.join(ROOT, 'node_modules', 'ws')) && existsSync(path.join(RO
   say('Já instaladas.')
 } else {
   say('Baixando (precisa de internet)...')
-  if ((await run('npm', ['install', '--omit=dev', '--no-audit', '--no-fund'])) !== 0) {
-    say('O npm não conseguiu instalar as dependências. Confira a internet e abra o instalador de novo.')
+  const npm = npmCommand()
+  if ((await run(npm.command, [...npm.args, 'install', '--omit=dev', '--no-audit', '--no-fund'], npm.shell)) !== 0) {
+    say('Não deu para baixar as dependências. Confira a internet e abra o instalador de novo.')
     process.exit(1)
   }
 }
@@ -79,17 +81,17 @@ if (existsSync(path.join(ROOT, 'node_modules', 'ws')) && existsSync(path.join(RO
 // ---------- 3. ffmpeg ----------
 step('ffmpeg')
 let ffmpeg = await findFfmpeg()
-if (!ffmpeg && IS_WINDOWS && yes(await ask('O ffmpeg não está instalado. Instalar agora com o winget? (s/N) '))) {
-  await run('winget', ['install', '--id', 'Gyan.FFmpeg', '-e', '--accept-source-agreements', '--accept-package-agreements'])
-  ffmpeg = await findFfmpeg()
-  if (!ffmpeg) say('Instalado, mas esta janela ainda não o enxerga. Feche-a e abra o arquivo "iniciar": uma janela nova já encontra o ffmpeg.')
+if (!ffmpeg) {
+  say('Este computador não tem o ffmpeg. Baixando um para a pasta do ajudante (cerca de 80 MB)...')
+  try {
+    ffmpeg = await installFfmpeg()
+  } catch (err) {
+    problems++
+    say(`Não deu para baixar agora (${err instanceof Error ? err.message : 'erro desconhecido'}).`)
+    say('Sem ele não dá para baixar vídeo, separar a voz nem sincronizar a letra pelo áudio (áudio simples baixa). O app oferece instalar depois, em Ajustes.')
+  }
 }
-if (ffmpeg) say(`ffmpeg ${ffmpeg.version}: encontrado.`)
-else {
-  problems++
-  say('ffmpeg NÃO encontrado. Sem ele não dá para baixar vídeo, separar a voz nem sincronizar a letra pelo áudio (áudio simples baixa).')
-  say(IS_WINDOWS ? 'Para instalar: winget install Gyan.FFmpeg' : 'Instale o ffmpeg pelo gerenciador de pacotes do sistema.')
-}
+if (ffmpeg) say(`ffmpeg ${ffmpeg.version}: ${ffmpeg.source === 'projeto' ? 'pronto, na pasta do ajudante.' : 'o deste computador serve.'}`)
 
 // ---------- 4. Downloader ----------
 step('Downloader (yt-dlp)')

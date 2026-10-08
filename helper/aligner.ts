@@ -6,7 +6,7 @@ import path from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { fileURLToPath } from 'node:url'
-import { BIN_DIR } from './binary.ts'
+import { BIN_DIR, npmCommand } from './binary.ts'
 import { HelperError, killTree } from './ytdlp.ts'
 import type { AlignOutcome, LineInput } from '../src/lib/align/ctc.ts'
 
@@ -88,7 +88,8 @@ export async function installAligner(onStage?: (stage: string) => void): Promise
   // Um package.json próprio faz o npm instalar aqui dentro, e não na pasta do projeto.
   await writeFile(path.join(ALIGNER_DIR, 'package.json'), JSON.stringify({ name: 'gogo-aligner', private: true }))
   // --ignore-scripts: o script de instalação do pacote só serve para baixar suporte a placas NVIDIA no Linux.
-  await run('npm', ['install', RUNTIME_PACKAGE, '--ignore-scripts', '--no-audit', '--no-fund', '--no-package-lock', '--loglevel=error'], { cwd: ALIGNER_DIR, shell: true })
+  const npm = npmCommand()
+  await run(npm.command, [...npm.args, 'install', RUNTIME_PACKAGE, '--ignore-scripts', '--no-audit', '--no-fund', '--no-package-lock', '--loglevel=error'], { cwd: ALIGNER_DIR, shell: npm.shell })
   await pruneRuntime()
 
   onStage?.('Baixando o modelo')
