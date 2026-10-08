@@ -1,0 +1,21 @@
+node_modules
+dist
+*.local
+.vite
+
+# downloader baixado por `npm run ytdlp:update`
+helper/bin
+
+# saidas dos testes de ponta a ponta
+scripts/.e2e
+
+# pasta do ajudante para levar a outra maquina (npm run helper:pack)
+dist-helper
+
+documents
+
+# criado pelo comando do Vercel ao ligar a pasta a um projeto
+.vercel
+
+# segredos locais, se um dia houver
+.env*

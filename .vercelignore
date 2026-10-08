@@ -1,0 +1,7 @@
+# O que nao sobe para a publicacao. O site so leva o app; o ajudante roda em cada computador.
+node_modules
+dist
+dist-helper
+helper/bin
+scripts/.e2e
+documents

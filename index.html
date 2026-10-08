@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Gogó</title>
+    <script>
+      // Aplica o tema antes da primeira pintura para a tela não piscar.
+      ;(function () {
+        var theme = 'system'
+        try {
+          var saved = JSON.parse(localStorage.getItem('gogo:settings') || '{}')
+          if (saved.state && saved.state.theme) theme = saved.state.theme
+        } catch (e) {}
+        if (theme === 'system') theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+        document.documentElement.dataset.theme = theme
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

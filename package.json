@@ -1,0 +1,54 @@
+{
+  "name": "gogo-karaoke",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Karaoke local: biblioteca, letras sincronizadas e pontuacao por afinacao.",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run typecheck && vite build",
+    "start": "vite build && vite preview",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.scripts.json",
+    "test": "node scripts/test.ts",
+    "test:e2e": "node scripts/e2e.ts",
+    "ytdlp:update": "node helper/update-ytdlp.ts",
+    "helper": "node helper/server.ts",
+    "helper:pack": "node scripts/pack-helper.ts",
+    "serve:publicado": "node scripts/serve-static.ts"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@fontsource-variable/mona-sans": "^5.3.0",
+    "@phosphor-icons/react": "^2.1.10",
+    "idb": "^8.0.4",
+    "motion": "^14.0.0",
+    "pitchy": "^4.1.0",
+    "qrcode": "^1.5.4",
+    "radix-ui": "^1.7.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router": "^8.4.0",
+    "selfsigned": "^5.5.0",
+    "ws": "^8.22.0",
+    "yaml": "^2.9.1",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.4",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/ws": "^8.18.2",
+    "@vitejs/plugin-react": "^6.1.2",
+    "playwright-core": "^1.63.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.3",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}

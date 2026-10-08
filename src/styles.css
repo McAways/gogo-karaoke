@@ -1,0 +1,217 @@
+/*
+ * As classes só são procuradas no código do app. Sem isto o Tailwind vigia a pasta
+ * inteira do projeto, e salvar qualquer documento (README, registro de andamento)
+ * recarrega a página aberta, no meio de uma música.
+ */
+@import 'tailwindcss' source(none);
+@source './';
+@source '../index.html';
+
+/*
+ * Sistema visual do Gogó
+ *
+ * Cor: neutros com um fio de oliva e UM acento, o lima "sinal" dos medidores de áudio.
+ *      O acento marca o que está vivo: a palavra cantada, a nota acertada, a ação principal.
+ * Forma: botões e chips em pílula, campos com 14px, cartões, capas e diálogos com 22px.
+ * Tipo: Mona Sans (largura variável) para tudo, Geist Mono para números.
+ * Tema: variáveis trocadas por [data-theme]. O palco é sempre escuro.
+ */
+
+@theme inline {
+  --font-sans: 'Mona Sans Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-hairline: var(--hairline);
+  --color-ink: var(--ink);
+  --color-soft: var(--soft);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-on-accent: var(--on-accent);
+  --color-danger: var(--danger);
+  --color-chart-muted: var(--chart-muted);
+
+  --radius-field: 14px;
+  --radius-card: 22px;
+
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-fade-in: fade-in 0.2s var(--ease-expo);
+  --animate-pop-in: pop-in 0.28s var(--ease-expo);
+  --animate-shimmer: shimmer 1.6s linear infinite;
+}
+
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --canvas: oklch(0.972 0.006 115);
+  --surface: oklch(0.992 0.004 115);
+  --raised: oklch(0.94 0.008 115);
+  --hairline: oklch(0.86 0.011 115);
+  --ink: oklch(0.2 0.015 115);
+  --soft: oklch(0.41 0.015 115);
+  --faint: oklch(0.51 0.014 115);
+  --accent: oklch(0.87 0.2 125);
+  --accent-ink: oklch(0.46 0.13 128);
+  --on-accent: oklch(0.22 0.05 125);
+  --danger: oklch(0.52 0.19 25);
+  /* Cinza das marcas de gráfico sem destaque: 3:1 contra o fundo, validado com o acento. */
+  --chart-muted: oklch(0.62 0.012 115);
+  --tile-l: 0.9;
+  --tile-c: 0.035;
+  --shadow: 0 18px 50px -24px oklch(0.3 0.03 115 / 0.35);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --canvas: oklch(0.155 0.008 115);
+  --surface: oklch(0.195 0.009 115);
+  --raised: oklch(0.24 0.01 115);
+  --hairline: oklch(0.31 0.012 115);
+  --ink: oklch(0.965 0.008 115);
+  --soft: oklch(0.77 0.012 115);
+  --faint: oklch(0.63 0.012 115);
+  --accent: oklch(0.9 0.19 125);
+  --accent-ink: oklch(0.9 0.19 125);
+  --on-accent: oklch(0.2 0.04 125);
+  --danger: oklch(0.72 0.17 25);
+  --chart-muted: oklch(0.5 0.01 115);
+  --tile-l: 0.3;
+  --tile-c: 0.04;
+  --shadow: 0 24px 60px -28px oklch(0 0 0 / 0.8);
+}
+
+@layer base {
+  html {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    min-height: 100dvh;
+    font-size: 15px;
+    line-height: 1.5;
+    /* Largura da barra de rolagem reservada: a página não pula ao abrir um diálogo. */
+    scrollbar-gutter: stable;
+  }
+
+  button,
+  [role='button'],
+  label[for] {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 50%, transparent);
+    color: var(--ink);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent-ink);
+    outline-offset: 2px;
+  }
+
+  input[type='search']::-webkit-search-cancel-button {
+    display: none;
+  }
+}
+
+/* Títulos: mesma família, mais larga e mais pesada. */
+@utility display {
+  font-stretch: 112%;
+  font-weight: 760;
+  letter-spacing: -0.028em;
+  line-height: 1;
+}
+
+/* Números pequenos e alinhados (tempos, contagens). Número grande de destaque usa a fonte do texto. */
+@utility numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+@utility skeleton {
+  background: linear-gradient(100deg, color-mix(in oklab, var(--ink) 7%, transparent) 40%, color-mix(in oklab, var(--ink) 13%, transparent) 50%, color-mix(in oklab, var(--ink) 7%, transparent) 60%);
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ---------- Palco: letra ---------- */
+
+.lyric-line {
+  transform-origin: left center;
+  transform: scale(0.8);
+  opacity: 0.3;
+  transition:
+    transform 0.55s var(--ease-expo),
+    opacity 0.55s var(--ease-expo);
+}
+
+.lyric-line[data-state='active'] {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.lyric-line[data-state='next'] {
+  opacity: 0.55;
+}
+
+.lyric-line[data-state='past'] {
+  opacity: 0.18;
+}
+
+/*
+ * Preenchimento da palavra: o JS só muda --p (0 a 1) no elemento, a cada quadro.
+ * O gradiente tem uma borda macia de 12% que termina exatamente em p = 1.
+ */
+.lyric-word {
+  --p: 0;
+  padding-block: 0.12em;
+  color: transparent;
+  background-image: linear-gradient(90deg, var(--accent) calc(var(--p) * 112% - 12%), var(--ink) calc(var(--p) * 112%));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* Fora da linha ativa a palavra fica neutra, mesmo que o JS tenha deixado um --p antigo. */
+.lyric-line:not([data-state='active']) .lyric-word {
+  --p: 0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

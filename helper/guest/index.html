@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0c0d09" />
+    <title>Gogó: entrar na sala</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/guest.css" />
+  </head>
+  <body>
+    <main>
+      <p class="marca">Gogó</p>
+
+      <!-- 1. Nome -->
+      <section id="tela-entrar">
+        <h1>Entrar na sala</h1>
+        <p class="apoio">Seu celular vai ouvir a sua voz e mandar a afinação para quem está comandando as músicas.</p>
+        <form id="form-entrar" novalidate>
+          <label for="nome">Seu nome</label>
+          <input id="nome" name="nome" type="text" maxlength="20" autocomplete="nickname" autocapitalize="words" enterkeyhint="go" required />
+          <p id="erro-nome" class="erro" role="alert" hidden></p>
+          <button type="submit" class="principal">Entrar</button>
+        </form>
+      </section>
+
+      <!-- 2. Microfone -->
+      <section id="tela-microfone" hidden>
+        <h1 id="saudacao">Olá</h1>
+        <p class="apoio">Falta liberar o microfone. O som não sai do seu celular nem é gravado: daqui só vai a nota que você está cantando.</p>
+        <p id="erro-mic" class="erro" role="alert" hidden></p>
+        <button id="ligar-mic" type="button" class="principal">Ligar microfone</button>
+      </section>
+
+      <!-- 3. Cantando -->
+      <section id="tela-palco" hidden>
+        <header>
+          <p id="quem" class="quem"></p>
+          <p id="conexao" class="conexao"></p>
+        </header>
+
+        <div class="musica">
+          <p id="titulo" class="titulo">Aguardando a próxima música</p>
+          <p id="artista" class="apoio"></p>
+        </div>
+
+        <!-- As notas da melodia passam da direita para a esquerda; o ponto é a voz de quem segura o celular. -->
+        <canvas id="pista" class="pista" aria-hidden="true" hidden></canvas>
+
+        <div class="letra" aria-live="off">
+          <p id="contagem" class="contagem"></p>
+          <p id="linha-anterior" class="linha-vizinha passada"></p>
+          <p id="linha-atual" class="linha-atual"></p>
+          <p id="linha-seguinte" class="linha-seguinte"></p>
+          <p id="linha-depois" class="linha-vizinha"></p>
+        </div>
+
+        <div class="rodape">
+          <div class="placar">
+            <p id="pontos" class="pontos">0</p>
+            <p id="posicao" class="apoio"></p>
+          </div>
+          <div class="voz">
+            <div class="medidor"><div id="nivel" class="nivel"></div></div>
+            <p class="leitura"><span>Sua voz</span><span id="nota">cante algo</span></p>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/guest.js"></script>
+  </body>
+</html>

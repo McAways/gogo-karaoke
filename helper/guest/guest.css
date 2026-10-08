@@ -1,0 +1,325 @@
+/*
+ * Página do convidado. Mesma identidade do app (neutros oliva, um acento lima, Mona Sans),
+ * escrita em CSS puro porque esta página é servida direto pelo ajudante, sem passar pelo build.
+ */
+
+@font-face {
+  font-family: 'Mona Sans Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  font-stretch: 75% 125%;
+  src: url('/fonte.woff2') format('woff2-variations');
+}
+
+:root {
+  color-scheme: dark;
+  --canvas: oklch(0.155 0.008 115);
+  --surface: oklch(0.195 0.009 115);
+  --raised: oklch(0.24 0.01 115);
+  --hairline: oklch(0.31 0.012 115);
+  --ink: oklch(0.965 0.008 115);
+  --soft: oklch(0.77 0.012 115);
+  --faint: oklch(0.63 0.012 115);
+  --accent: oklch(0.9 0.19 125);
+  --on-accent: oklch(0.2 0.04 125);
+  --danger: oklch(0.72 0.17 25);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+html {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: 'Mona Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+main {
+  display: flex;
+  min-height: 100dvh;
+  height: 100dvh;
+  flex-direction: column;
+  padding: max(20px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.marca {
+  font-stretch: 112%;
+  font-weight: 760;
+  font-size: 20px;
+  letter-spacing: -0.028em;
+}
+
+section {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+}
+
+h1 {
+  font-stretch: 112%;
+  font-weight: 760;
+  font-size: clamp(2.25rem, 11vw, 3.25rem);
+  letter-spacing: -0.028em;
+  line-height: 1;
+  text-wrap: balance;
+}
+
+.apoio {
+  color: var(--soft);
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+label {
+  color: var(--soft);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+input {
+  width: 100%;
+  height: 56px;
+  padding: 0 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 18px;
+}
+
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.erro {
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.principal {
+  height: 56px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: 17px;
+  font-weight: 650;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.principal:active {
+  transform: scale(0.97);
+}
+
+.principal:disabled {
+  opacity: 0.45;
+}
+
+/* ---------- cantando ---------- */
+
+/* A tela cabe inteira na altura do celular: pista em cima, letra no meio, nota embaixo. */
+#tela-palco {
+  justify-content: flex-start;
+  gap: 14px;
+  padding-top: 14px;
+  min-height: 0;
+}
+
+#tela-palco header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.quem {
+  font-weight: 650;
+}
+
+.conexao {
+  color: var(--faint);
+  font-size: 13px;
+}
+
+.conexao[data-estado='caiu'] {
+  color: var(--danger);
+}
+
+.titulo {
+  font-stretch: 108%;
+  font-weight: 720;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.musica .apoio {
+  font-size: 14px;
+}
+
+.pista {
+  display: block;
+  width: 100%;
+  height: 25dvh;
+  min-height: 92px;
+  flex-shrink: 0;
+}
+
+.letra {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  min-height: 8.5rem;
+}
+
+.contagem {
+  min-height: 1.2em;
+  color: var(--soft);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.linha-vizinha,
+.linha-seguinte {
+  overflow: hidden;
+  color: var(--faint);
+  font-stretch: 88%;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linha-vizinha {
+  font-size: 1rem;
+  opacity: 0.55;
+}
+
+.linha-vizinha.passada {
+  opacity: 0.3;
+}
+
+.linha-seguinte {
+  font-size: 1.15rem;
+}
+
+.linha-atual {
+  font-stretch: 88%;
+  font-weight: 780;
+  font-size: clamp(1.55rem, 7.4vw, 2.3rem);
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+  text-wrap: balance;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* A linha ainda não começou: fica mais apagada, à espera. */
+.linha-atual.esperando {
+  opacity: 0.6;
+}
+
+/* Fora da música (resultado, sala parada) a linha vira um aviso em destaque. */
+.linha-atual.aviso {
+  color: var(--accent);
+}
+
+/*
+ * Preenchimento da palavra: o JS só muda --p (de 0 a 1) a cada quadro.
+ * O gradiente tem uma borda macia de 12% que termina exatamente em p = 1.
+ */
+.palavra {
+  --p: 0;
+  padding-block: 0.1em;
+  color: transparent;
+  background-image: linear-gradient(90deg, var(--accent) calc(var(--p) * 112% - 12%), var(--ink) calc(var(--p) * 112%));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.rodape {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.placar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pontos {
+  font-stretch: 108%;
+  font-weight: 760;
+  font-size: clamp(2.4rem, 13vw, 3.6rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
+}
+
+.medidor {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--ink) 15%, transparent);
+}
+
+.nivel {
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: left;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.leitura {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  color: var(--soft);
+  font-size: 13px;
+}
+
+.leitura span:last-child {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+  }
+}
