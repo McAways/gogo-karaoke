@@ -3,9 +3,12 @@
 //
 // Uso: node helper/install.ts [--site=<endereço>] [--inicio=sim|nao] [--sem-perguntas]
 //
+// Sem --site, o endereço a autorizar vem do arquivo "endereco-do-app.txt" da pasta, que o app
+// anota no pacote quando a pessoa o baixa por lá. Sem o arquivo, o instalador pergunta.
+//
 // Só usa o que vem com o Node: roda antes de as dependências existirem.
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -51,6 +54,18 @@ function startupDir(): string | null {
 }
 
 const STARTUP_FILE = 'Gogo ajudante.cmd'
+
+/**
+ * Quem baixa o pacote pelo próprio app recebe, dentro dele, o endereço desse app. É a pessoa que
+ * escolhe abrir o instalador que veio de lá, então o endereço entra na lista sem pergunta.
+ */
+function packagedSite(): string | undefined {
+  try {
+    return readFileSync(path.join(ROOT, 'endereco-do-app.txt'), 'utf8').trim() || undefined
+  } catch {
+    return undefined
+  }
+}
 
 let problems = 0
 
@@ -112,7 +127,9 @@ if (ytDlp) say(`yt-dlp ${ytDlp.version}: pronto.`)
 // ---------- 5. Endereço do app publicado ----------
 step('Endereço do app publicado')
 say('O ajudante só atende os endereços autorizados aqui. Nenhum site entra na lista sozinho.')
-const wanted = option('site') ?? (savedSites().length === 0 ? await ask('Endereço do seu app publicado (ex.: https://meu-gogo.vercel.app). Enter para deixar para depois: ') : '')
+const packaged = option('site') ? undefined : packagedSite()
+if (packaged) say(`Este pacote foi baixado pelo app em ${packaged}: é esse o endereço que fica autorizado.`)
+const wanted = option('site') ?? packaged ?? (savedSites().length === 0 ? await ask('Endereço do seu app publicado (ex.: https://meu-gogo.vercel.app). Enter para deixar para depois: ') : '')
 if (wanted) {
   try {
     say(`Autorizado: ${await allowSite(wanted)}`)

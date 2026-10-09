@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Button } from '@/components/button'
 import { Segmented, Slider, Switch } from '@/components/form'
-import { allowCommand, useHelperPresence } from '@/components/helper-guide'
+import { HelperInstallGuide, allowCommand, useHelperPackage, useHelperPresence } from '@/components/helper-guide'
 import { formatBytes } from '@/lib/format'
-import { appOrigin, forgetHelperStatus, helperStatus, installAligner, installFfmpeg, installSeparator, isPublishedApp, updateDownloader } from '@/lib/helper'
+import { appOrigin, forgetHelperStatus, helperIsOutdated, helperStatus, installAligner, installFfmpeg, installSeparator, isPublishedApp, updateDownloader } from '@/lib/helper'
 import type { HelperStatus } from '@/lib/helper'
 import { requestPersistence, storageInfo } from '@/lib/storage/files'
 import type { StorageInfo } from '@/lib/storage/files'
@@ -57,6 +57,9 @@ export function SettingsPage() {
   const [storage, setStorage] = useState<StorageInfo | null>(null)
   const { presence, retry } = useHelperPresence()
   const published = isPublishedApp()
+  const helperPack = useHelperPackage()
+  /** O ajudante desta máquina é de um pacote mais velho que o que este endereço oferece. */
+  const outdated = presence === 'ok' && helper !== 'checking' && helperIsOutdated(helper, helperPack ?? null)
 
   useEffect(() => {
     void helperStatus().then(setHelper)
@@ -221,23 +224,17 @@ export function SettingsPage() {
               {presence !== 'ok' && presence !== 'verificando' && <Button onClick={findHelper}>Procurar de novo</Button>}
             </Row>
           </div>
-          {published && presence !== 'ok' && presence !== 'verificando' && (
-            <div>
-              <p className="font-semibold">Como instalar nesta máquina</p>
-              <ol className="mt-2 max-w-[62ch] list-decimal space-y-2 pl-5 text-sm text-soft">
-                <li>
-                  No computador principal, na pasta do projeto, rode <code className="numeric text-ink">npm run helper:pack</code>. Ele gera a pasta{' '}
-                  <code className="numeric text-ink">gogo-ajudante</code>.
-                </li>
-                <li>
-                  Traga essa pasta para cá e abra o arquivo <code className="numeric text-ink">instalar</code> (no Mac, <code className="numeric text-ink">instalar.command</code>). Ele baixa sozinho o que a máquina não tiver, inclusive o Node e o ffmpeg, e pergunta o endereço deste app:{' '}
-                  <code className="numeric text-ink">{appOrigin()}</code>
-                </li>
-                <li>
-                  Daí em diante, o arquivo <code className="numeric text-ink">iniciar</code> sobe o ajudante. A instalação oferece subir junto com o Windows.
-                </li>
-              </ol>
-            </div>
+          {published && presence === 'ausente' && <HelperInstallGuide />}
+          {outdated && (
+            <>
+              <div className="max-w-[46ch]">
+                <p className="font-semibold">Há um ajudante mais novo para baixar</p>
+                <p className="mt-0.5 text-sm text-soft">
+                  O que está instalado nesta máquina é de uma versão anterior à deste app. Ele continua funcionando, mas pode faltar nele o que as funções novas do app usam.
+                </p>
+              </div>
+              <HelperInstallGuide updating />
+            </>
           )}
         </Group>
 

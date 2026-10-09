@@ -1,4 +1,5 @@
 import type { AlignOutcome, LineInput } from './align/ctc'
+import { appendToZip } from './zip'
 
 /**
  * Cliente do ajudante: o programa deste computador que baixa do YouTube, separa a voz, mede a
@@ -104,6 +105,51 @@ export interface HelperStatus {
   ffmpeg: { version: string } | null
   separator?: { installed: boolean }
   aligner?: { installed: boolean }
+  /** Marca do pacote instalado. 'projeto' = rodando da pasta do projeto. Ajudante de antes de a marca existir não informa. */
+  build?: string | null
+}
+
+/** O pacote do ajudante que este endereço oferece para baixar. */
+export interface HelperPackage {
+  /** A mesma marca que o ajudante instalado informa em `build`. */
+  versao: string
+  bytes: number
+}
+
+export const HELPER_PACKAGE_FILE = 'gogo-ajudante.zip'
+
+let offered: Promise<HelperPackage | null> | null = null
+
+/** null quando o app foi publicado sem o pacote do ajudante. */
+export function helperPackage(): Promise<HelperPackage | null> {
+  offered ??= fetch('/gogo-ajudante.json')
+    .then(async (res) => {
+      // Endereço que não existe cai na página do app, que é HTML.
+      if (!res.ok || !res.headers.get('content-type')?.includes('json')) return null
+      const body = (await res.json()) as Partial<HelperPackage>
+      return typeof body.versao === 'string' && typeof body.bytes === 'number' ? { versao: body.versao, bytes: body.bytes } : null
+    })
+    .catch(() => null)
+  return offered
+}
+
+/** true quando o ajudante instalado não é o do pacote que este endereço oferece. */
+export function helperIsOutdated(status: HelperStatus | null, pack: HelperPackage | null): boolean {
+  if (!status || !pack || !isPublishedApp()) return false
+  return status.build !== 'projeto' && status.build !== pack.versao
+}
+
+/**
+ * O pacote do ajudante, pronto para salvar. No app publicado o endereço do app vai anotado dentro
+ * dele, e o instalador o autoriza sem perguntar: quem instala o que baixou daqui está escolhendo
+ * confiar neste endereço. O zip guardado no servidor é o mesmo para qualquer endereço.
+ */
+export async function helperPackageFile(): Promise<Blob> {
+  const res = await fetch(`/${HELPER_PACKAGE_FILE}`)
+  if (!res.ok || res.headers.get('content-type')?.includes('html')) throw new HelperError('Este endereço não tem o ajudante para baixar.')
+  const zip = new Uint8Array(await res.arrayBuffer())
+  const stamped = isPublishedApp() ? appendToZip(zip, 'gogo-ajudante/endereco-do-app.txt', new TextEncoder().encode(`${appOrigin()}\n`)) : zip
+  return new Blob([stamped], { type: 'application/zip' })
 }
 
 export interface VideoSummary {

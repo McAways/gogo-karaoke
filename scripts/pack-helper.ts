@@ -2,7 +2,13 @@
 //
 // Monta em dist-helper/gogo-ajudante a pasta do ajudante para levar a outra máquina (Windows ou
 // macOS): o código dele, a lista do que instalar e os arquivos de dois cliques (instalar, iniciar,
-// permitir). Com --site, a pasta já sai autorizando o endereço do app publicado.
+// permitir).
+//
+// Sem --site, o zip também vai para public/gogo-ajudante.zip: é o que o app publicado oferece em
+// "Baixar o ajudante". Ele precisa ser commitado junto com o código do ajudante (um teste avisa
+// quando ficou para trás). O app anota o próprio endereço dentro do zip na hora do download.
+// Com --site, a pasta já sai autorizando aquele endereço e fica só em dist-helper: é um pacote
+// para levar em mãos, e não vai para public/.
 //
 // A máquina de destino não precisa ter nada instalado: o "instalar" baixa o Node (o mesmo deste
 // computador, conferido pela soma publicada em nodejs.org) só para dentro da pasta, e o resto
@@ -10,14 +16,17 @@
 //
 // O que NÃO vai: helper/bin (os programas baixados, a lista de endereços desta máquina e o
 // certificado da sala). Cada computador baixa os seus e guarda os seus.
-import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { copyFileSync, cpSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { crc32, deflateRawSync } from 'node:zlib'
+import { HELPER_DEPENDENCIES, SHARED_SOURCE, helperEntries, stampOf } from './helper-stamp.ts'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const OUT_ROOT = path.join(ROOT, 'dist-helper')
 const OUT = path.join(OUT_ROOT, 'gogo-ajudante')
+const PUBLIC = path.join(ROOT, 'public')
 const site = process.argv.find((arg) => arg.startsWith('--site='))?.slice('--site='.length)
+const stamp = stampOf(ROOT)
 
 // ---------- o Node que o instalador baixa quando a máquina não tem ----------
 
@@ -59,13 +68,23 @@ mkdirSync(path.join(OUT, 'suporte'), { recursive: true })
 
 // O código do ajudante, sem os testes, sem a pasta dos programas baixados e sem a peça que o
 // encaixa no servidor de desenvolvimento do app (plugin.ts), que lá não existe.
-for (const name of readdirSync(path.join(ROOT, 'helper'))) {
-  if (name === 'bin' || name === 'plugin.ts' || name.endsWith('.test.ts')) continue
-  cpSync(path.join(ROOT, 'helper', name), path.join(OUT, 'helper', name), { recursive: true })
-}
+for (const name of helperEntries(ROOT)) cpSync(path.join(ROOT, 'helper', name), path.join(OUT, 'helper', name), { recursive: true })
 // O único arquivo do app que o ajudante usa: o encaixe da letra no áudio.
-mkdirSync(path.join(OUT, 'src', 'lib', 'align'), { recursive: true })
-cpSync(path.join(ROOT, 'src', 'lib', 'align', 'ctc.ts'), path.join(OUT, 'src', 'lib', 'align', 'ctc.ts'))
+mkdirSync(path.dirname(path.join(OUT, SHARED_SOURCE)), { recursive: true })
+cpSync(path.join(ROOT, SHARED_SOURCE), path.join(OUT, SHARED_SOURCE))
+// O git entrega estes arquivos com fim de linha de Windows ou de Unix, conforme a máquina. No
+// pacote vão sempre com o de Unix, para o mesmo código gerar o mesmo zip em qualquer lugar.
+const unixLines = (dir: string): void => {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const target = path.join(dir, entry.name)
+    if (entry.isDirectory()) unixLines(target)
+    else if (/\.(ts|js|css|html|json)$/.test(entry.name)) writeFileSync(target, readFileSync(target, 'utf8').replace(/\r\n/g, '\n'))
+  }
+}
+unixLines(path.join(OUT, 'helper'))
+unixLines(path.join(OUT, 'src'))
+// A marca deste pacote: o ajudante a informa ao app, que avisa quando há um mais novo para baixar.
+writeFileSync(path.join(OUT, 'pacote.json'), `${JSON.stringify({ versao: stamp }, null, 2)}\n`)
 
 const project = JSON.parse(readFileSync(path.join(ROOT, 'package.json'), 'utf8')) as { version: string; dependencies: Record<string, string> }
 writeFileSync(
@@ -80,7 +99,7 @@ writeFileSync(
       engines: { node: '>=22.18' },
       scripts: { start: 'node helper/server.ts', permitir: 'node helper/server.ts permitir', sites: 'node helper/server.ts sites' },
       // Só o que o ajudante importa de fora.
-      dependencies: { selfsigned: project.dependencies.selfsigned, ws: project.dependencies.ws },
+      dependencies: Object.fromEntries(HELPER_DEPENDENCIES.map((name) => [name, project.dependencies[name]])),
     },
     null,
     2,
@@ -344,8 +363,14 @@ writeFileSync(
     '',
     '  O instalador baixa sozinho o que a máquina não tiver: o Node (só para dentro desta pasta,',
     '  sem mexer no resto do computador), as dependências, o ffmpeg e o downloader. Depois',
-    '  pergunta o endereço do seu app publicado, que é o único site que vai poder usar o ajudante.',
+    '  autoriza o endereço do seu app publicado, que é o único site que vai poder usar o ajudante.',
+    '  Se você baixou este pacote pelo próprio app, o endereço já veio anotado (no arquivo',
+    '  "endereco-do-app.txt") e o instalador não pergunta nada. Senão, ele pergunta.',
     '  Precisa de internet. Não precisa de senha de administrador.',
+    '',
+    'Para atualizar',
+    '  Feche a janela do ajudante, extraia o pacote novo por cima desta pasta e abra "instalar"',
+    '  de novo. O que já foi baixado e os endereços autorizados continuam.',
     '',
     'Para usar',
     '  Abra o arquivo "iniciar" (no Mac, "iniciar.command") e deixe a janela aberta. Depois abra',
@@ -391,9 +416,10 @@ const files = (dir: string): string[] => readdirSync(dir, { withFileTypes: true 
  * permissão, e sem ela o macOS se recusa a abrir um .command com dois cliques.
  */
 function writeZip(target: string, list: string[], base: string, executable: (name: string) => boolean): void {
-  const now = new Date()
-  const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)
-  const date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()
+  // Data fixa (1º de janeiro de 2026): o mesmo código gera sempre o mesmo zip, byte a byte, e o
+  // arquivo commitado em public/ só muda quando o ajudante muda.
+  const time = 0
+  const date = ((2026 - 1980) << 9) | (1 << 5) | 1
   const body: Buffer[] = []
   const index: Buffer[] = []
   let offset = 0
@@ -448,14 +474,28 @@ function writeZip(target: string, list: string[], base: string, executable: (nam
   writeFileSync(target, Buffer.concat([...body, ...index, end]))
 }
 
-const all = files(OUT)
+// Em ordem fixa, pela mesma razão da data fixa.
+const all = files(OUT).sort()
 const bytes = all.reduce((sum, file) => sum + statSync(file).size, 0)
 const zip = path.join(OUT_ROOT, 'gogo-ajudante.zip')
 writeZip(zip, all, OUT_ROOT, (name) => name.endsWith('.command') || name.endsWith('.sh'))
 
 console.log(`Pasta do ajudante pronta: ${OUT}`)
-console.log(`  ${all.length} arquivos, ${Math.round(bytes / 1024)} KB${site ? `, já autorizando ${site}` : ''}`)
+console.log(`  ${all.length} arquivos, ${Math.round(bytes / 1024)} KB, versão ${stamp}${site ? `, já autorizando ${site}` : ''}`)
 console.log(`  também em um arquivo só: ${zip}`)
+
+// O zip que o app publicado oferece para baixar. Só o pacote sem endereço (cada site anota o seu
+// na hora do download) e só com as somas do Node: o que vai a público tem de conferir o que baixa.
+if (site) {
+  console.log('  este pacote já autoriza um endereço, então NÃO foi para public/ (o que vai para lá é o gerado sem --site)')
+} else if (!verified) {
+  console.log('  AVISO: sem as somas do Node, o zip NÃO foi copiado para public/. Gere de novo com internet.')
+} else {
+  const published = path.join(PUBLIC, 'gogo-ajudante.zip')
+  copyFileSync(zip, published)
+  writeFileSync(path.join(PUBLIC, 'gogo-ajudante.json'), `${JSON.stringify({ versao: stamp, bytes: statSync(published).size, node: NODE_VERSION }, null, 2)}\n`)
+  console.log(`  e em public/gogo-ajudante.zip, para o app publicado oferecer em "Baixar o ajudante": commite os dois arquivos de public/`)
+}
 console.log(`  para Windows (instalar.cmd) e macOS (instalar.command); para o Mac, leve o zip: ele guarda a permissão de executar`)
 console.log(
   verified
