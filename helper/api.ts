@@ -1,4 +1,4 @@
-import { createReadStream, createWriteStream } from 'node:fs'
+import { createReadStream, createWriteStream, existsSync, readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, readdir, rename, rm, stat } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
@@ -206,10 +206,27 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   throw new HelperError(404, 'Rota desconhecida.')
 }
 
+/**
+ * A marca do pacote instalado (quem monta o pacote grava em pacote.json). O app a compara com a
+ * do pacote que ele oferece para baixar e avisa quando há um mais novo. 'projeto' = rodando da
+ * pasta do projeto, onde não há pacote para atualizar.
+ */
+const BUILD = ((): string | null => {
+  const root = path.resolve(import.meta.dirname, '..')
+  try {
+    const { versao } = JSON.parse(readFileSync(path.join(root, 'pacote.json'), 'utf8')) as { versao?: unknown }
+    if (typeof versao === 'string') return versao
+  } catch {
+    // Sem o arquivo: é a pasta do projeto, ou um pacote de antes de a marca existir.
+  }
+  return existsSync(path.join(root, 'vite.config.ts')) ? 'projeto' : null
+})()
+
 async function status() {
   const tools = await getTools()
   return {
     ok: true,
+    build: BUILD,
     ytDlp: tools.ytDlp && { version: tools.ytDlp.version, source: tools.ytDlp.source },
     ffmpeg: tools.ffmpeg && { version: tools.ffmpeg.version },
     separator: { installed: separatorInstalled() },

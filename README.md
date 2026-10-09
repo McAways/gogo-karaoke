@@ -113,7 +113,7 @@ Segure o celular perto da boca, como um microfone. Dá para cantar no microfone 
 caixa de som ao mesmo tempo.
 
 Na tela do celular aparecem a letra, preenchida palavra por palavra, a pista de tom
-com as notas da melodia e um ponto mostrando onde a voz da pessoa está, e a nota dela.
+com as notas da melodia e uma linha mostrando onde a voz da pessoa está, e a nota dela.
 
 No palco aparece o placar ao vivo, e no fim cada pessoa tem a própria nota. Só entra
 no resultado quem cantou.
@@ -216,24 +216,43 @@ quem usa. Para ver como fica sem publicar: `npm run build` e `npm run serve:publ
 
 ### Instalar o ajudante em outra máquina
 
-1. No computador principal: `npm run helper:pack -- --site=https://seu-endereco.vercel.app`.
-   Sai a pasta `dist-helper/gogo-ajudante` (e um `.zip` dela), já autorizando o seu endereço.
-2. Leve a pasta para a outra máquina (para um Mac, leve o `.zip`: ele guarda a permissão
-   de executar). A máquina não precisa ter nada instalado, só internet.
-3. Abra o arquivo **instalar** (no Mac, `instalar.command`). Ele baixa sozinho o que
-   faltar: o Node, só para dentro da pasta e sem mexer no sistema, as dependências, o
-   ffmpeg e o downloader. No Windows, pergunta também se o ajudante deve subir junto com
-   o sistema.
-4. Abra o arquivo **iniciar** (no Mac, `iniciar.command`) e deixe a janela aberta. Depois
-   abra o endereço do app no Chrome ou no Edge. Na primeira vez o navegador pergunta se o
-   site pode acessar a rede local: permita. É assim que o site fala com o ajudante.
+O próprio app publicado entrega o ajudante. A máquina não precisa ter nada instalado, só
+internet.
 
-No Mac, se o sistema disser que não pode abrir o arquivo, clique nele com o botão direito
-e escolha Abrir. Os arquivos do Mac ainda não foram rodados num Mac de verdade; os do
-Windows foram testados numa máquina simulada sem Node e sem ffmpeg. Para desinstalar,
-apague a pasta: tudo o que foi baixado fica dentro dela.
+1. Abra o endereço do app nela, vá em **Ajustes, "Ajudante"** e clique em **Baixar o
+   ajudante**. (O mesmo botão aparece em "Adicionar música" quando o ajudante não é
+   encontrado.) O zip já sai com o endereço do app anotado dentro.
+2. Extraia o zip e abra o arquivo **instalar** (no Mac, `instalar.command`). Ele baixa
+   sozinho o que faltar: o Node, só para dentro da pasta e sem mexer no sistema, as
+   dependências, o ffmpeg e o downloader. E autoriza o endereço do app sem perguntar. No
+   Windows, pergunta se o ajudante deve subir junto com o sistema.
+3. Abra o arquivo **iniciar** (no Mac, `iniciar.command`) e deixe a janela aberta. De volta
+   ao app, clique em "Procurar de novo". Na primeira vez o navegador pergunta se o site
+   pode acessar a rede local: permita. É assim que o site fala com o ajudante.
 
-Em Ajustes, "Ajudante", o app diz se achou o ajudante e, se não achou, o que falta.
+O sistema desconfia de arquivo baixado pelo navegador:
+
+- **Windows**: se aparecer "O Windows protegeu o computador", clique em "Mais informações"
+  e em "Executar assim mesmo".
+- **Mac**: se o macOS disser que não pode abrir o `instalar.command`, vá em Ajustes do
+  Sistema, Privacidade e Segurança, e clique em "Abrir Mesmo Assim". Ou use o comando de
+  uma linha que a tela de Ajustes mostra para colar no Terminal: ele baixa o ajudante para a
+  sua pasta pessoal (`~/gogo-ajudante`) e abre o instalador, sem passar por esse bloqueio.
+
+Quando o app muda e o ajudante instalado fica para trás, Ajustes avisa ("Há um ajudante
+mais novo para baixar"). Para atualizar: feche a janela do ajudante, extraia o pacote novo
+por cima da pasta antiga e abra **instalar** de novo. O que já foi baixado e os endereços
+autorizados continuam. Para desinstalar, apague a pasta: tudo fica dentro dela.
+
+O instalador foi testado no Windows e no macOS. O download pelo navegador no Mac e o
+comando de Terminal ainda não foram rodados num Mac de verdade.
+
+**Para quem publica o app:** o zip que o site oferece fica em `public/gogo-ajudante.zip`,
+com a ficha dele em `public/gogo-ajudante.json`, e os dois vão para o repositório. Sempre
+que mexer em `helper/`, rode `npm run helper:pack` e commite os dois arquivos; `npm test`
+falha quando o pacote ficou para trás. Para levar o ajudante em mãos, sem passar pelo site:
+`npm run helper:pack -- --site=https://seu-endereco.vercel.app` gera a pasta em
+`dist-helper/gogo-ajudante` já autorizando o seu endereço (esse não vai para `public/`).
 
 ### O que é bom saber
 
@@ -261,7 +280,7 @@ Em Ajustes, "Ajudante", o app diz se achou o ajudante e, se não achou, o que fa
 | A busca não mostra o vídeo que eu queria | O filtro "Só vídeos com letra" esconde os que não têm letra conhecida. Desligue o filtro ou clique em "Mostrar todos". Link colado nunca é escondido. |
 | O link do Spotify não abre | Playlist precisa ser pública; álbum e música abrem sempre. Se nada abrir, o Spotify pode ter mudado a página: adicione as músicas pela busca. |
 | Letra parada na tela | É uma letra só de texto. Com a sincronia pelo áudio instalada e a voz separada, "Sincronizar pelo áudio" mede os tempos. Senão, troque por uma sincronizada em "Buscar letra", ou marque os tempos no editor. |
-| Não achou a letra | Na página da música: confira nome e artista em "Editar dados" e busque de novo, importe um `.lrc`, ou cole o texto e marque os tempos no editor. |
+| Não achou a letra | Na página da música, "Buscar letra" tem o campo "Buscar com outras palavras": o banco só acha a letra que tem todas as palavras da busca, então use poucas (o nome da música e o artista). Não precisa renomear a música. Se a letra não estiver no banco, importe um `.lrc`, ou cole o texto e marque os tempos no editor. |
 | Pontuação baixa mesmo cantando certo | Teste com fones, e ajuste o "Atraso do microfone" em Ajustes (Bluetooth pede 150 ms ou mais). |
 | Biblioteca apareceu vazia | Confira se o endereço é `localhost:5173`. Em outra porta o navegador mostra outra biblioteca. |
 | O app publicado não acha o ajudante | Confira se a janela do "iniciar" está aberta naquele computador. No Chrome ou no Edge, clique no ícone ao lado do endereço e veja se o acesso à rede local está permitido para o site. Depois, em Ajustes, "Ajudante", use "Procurar de novo". |
@@ -293,13 +312,18 @@ biblioteca. Em Ajustes dá para pedir ao navegador que proteja esses dados.
 | `npm run typecheck` | Checagem de tipos |
 | `npm run ytdlp:update` | Baixa ou atualiza o `yt-dlp` |
 | `npm run helper` | Sobe o ajudante sozinho, para o app publicado (porta 5175). Com `-- permitir <endereço>`, `-- esquecer <endereço>` ou `-- sites`, cuida da lista de endereços autorizados |
-| `npm run helper:pack` | Monta em `dist-helper` a pasta do ajudante para levar a outra máquina |
+| `npm run helper:pack` | Monta o pacote do ajudante: a pasta em `dist-helper` e o zip que o app publicado oferece, em `public/` |
 | `npm run serve:publicado` | Serve a versão de produção como um site estático, sem o ajudante embutido, para ver como fica publicada |
 
 ## Como funciona, em resumo
 
-- **Letras**: vêm do [LRCLIB](https://lrclib.net), um banco aberto. A busca usa
-  artista, título e duração: a letra com a mesma duração da gravação é a que encaixa.
+- **Letras**: vêm do [LRCLIB](https://lrclib.net), um banco aberto. O título de um vídeo
+  vem cheio de enfeite ("Ao Vivo", "Clipe Oficial", o nome do DVD) e o banco só devolve o
+  registro que tem todas as palavras da busca. Por isso o app busca em degraus, do nome
+  mais completo ao mais curto, e reconhece a letra certa conferindo se o nome e o artista
+  do registro aparecem no que ele sabe do vídeo. A duração desempata: a letra com a mesma
+  duração da gravação é a que encaixa. A letra que a busca de vídeos mostra é a que segue
+  com o download.
 - **Preenchimento palavra a palavra**: quando a fonte só tem o tempo de cada linha,
   as palavras são distribuídas por sílabas dentro dela. Com `.lrc` "enhanced" ou
   UltraStar, o tempo de cada palavra é o real.

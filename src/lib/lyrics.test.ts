@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { formatLrcTime, linesToLrc, looksLikeLrc, lrcToLines, parseLrc } from './lrc'
 import { buildLines, distributeWords, joinWords, lineIndexAt, syllableCount } from './lyrics-timing'
-import { parseFileName, parseVideoTitle, similarity } from './titles'
+import { coreTitle, firstArtist, parseFileName, parseVideoTitle, searchText, similarity, titleHead, versionMarks } from './titles'
 import { looksLikeUltraStar, parseUltraStar } from './ultrastar'
 
 describe('LRC', () => {
@@ -181,5 +181,39 @@ describe('títulos', () => {
   it('compara ignorando acento e caixa', () => {
     expect(similarity('Evidências', 'EVIDENCIAS')).toBe(1)
     expect(similarity('Tempo Perdido', 'Faroeste Caboclo')).toBe(0)
+  })
+
+  it('fica só com o nome da música, sem o que vem pendurado nele', () => {
+    expect(coreTitle('Evidências - Ao Vivo')).toBe('Evidências')
+    expect(coreTitle('Bebi Liguei (Todos Os Cantos - Ao Vivo)')).toBe('Bebi Liguei')
+    expect(coreTitle('Evidências (Ao Vivo) DVD 50 Anos')).toBe('Evidências')
+    expect(coreTitle('Hotel California - Live On MTV, 1994')).toBe('Hotel California')
+    expect(coreTitle('Tempo Perdido - Remastered 2010 (Deluxe)')).toBe('Tempo Perdido')
+    expect(coreTitle('Borboletas (Villa Country)')).toBe('Borboletas')
+    expect(coreTitle('Infiel feat. Fulano de Tal')).toBe('Infiel')
+    // O que faz parte do nome fica.
+    expect(coreTitle("(Sittin' On) The Dock of the Bay")).toBe("(Sittin' On) The Dock of the Bay")
+    expect(coreTitle('Evidências | Show Completo 50 Anos')).toBe('Evidências | Show Completo 50 Anos')
+    expect(titleHead('Evidências | Show Completo 50 Anos')).toBe('Evidências')
+    expect(titleHead("(Sittin' On) The Dock of the Bay")).toBe("(Sittin' On) The Dock of the Bay")
+  })
+
+  it('separa o primeiro artista sem partir uma dupla', () => {
+    expect(firstArtist('Marília Mendonça, Maiara & Maraisa')).toBe('Marília Mendonça')
+    expect(firstArtist('Chitãozinho & Xororó')).toBe('Chitãozinho & Xororó')
+    expect(firstArtist('Anitta feat. Becky G')).toBe('Anitta')
+    expect(firstArtist('AC/DC')).toBe('AC/DC')
+  })
+
+  it('tira da busca as palavras que só existem em título de vídeo', () => {
+    expect(searchText('Chitãozinho & Xororó - Evidências (Clipe Oficial) [4K]')).toBe('chitaozinho e xororo evidencias')
+    expect(searchText('evidencias ao vivo letra')).toBe('evidencias ao vivo')
+    expect(searchText('Letra')).toBe('letra')
+  })
+
+  it('reconhece as marcas de outra gravação', () => {
+    expect(versionMarks('Evidências (Ao Vivo)')).toEqual(['ao vivo'])
+    expect(versionMarks('Tempo Perdido - Acústico MTV')).toEqual(['acústico'])
+    expect(versionMarks('Evidências')).toEqual([])
   })
 })

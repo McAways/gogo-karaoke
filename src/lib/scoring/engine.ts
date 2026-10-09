@@ -108,6 +108,15 @@ export class ScoreEngine {
 
   /** `midi` null = o cantor está em silêncio. Devolve como a amostra foi julgada. */
   push(time: number, midi: number | null): Judgment {
+    return this.judge(time, midi, true)
+  }
+
+  /** Como uma amostra seria julgada, sem valer ponto: serve para desenhar a voz. */
+  peek(time: number, midi: number | null): Judgment {
+    return this.judge(time, midi, false)
+  }
+
+  private judge(time: number, midi: number | null, earn: boolean): Judgment {
     const { slots } = this.reference
     const { tolerance, timingSlack } = this.rules
     const judgment: Judgment = { diff: null, target: null, credit: 0 }
@@ -137,7 +146,7 @@ export class ScoreEngine {
           const off = Math.abs(diff)
           credit = off <= tolerance ? 1 : off >= tolerance * 2 ? 0 : 1 - (off - tolerance) / tolerance
         }
-        if (credit > this.values[i]) {
+        if (earn && credit > this.values[i]) {
           this.earned += (credit - this.values[i]) * slot.weight
           this.values[i] = credit
         }

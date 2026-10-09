@@ -2,7 +2,8 @@ export type MediaKind = 'audio' | 'video'
 export type Difficulty = 'facil' | 'normal' | 'dificil'
 
 export type SongSource =
-  | { type: 'youtube'; url: string; videoId: string; channel?: string }
+  // `title` é o título do vídeo como estava no YouTube: ajuda a achar a letra.
+  | { type: 'youtube'; url: string; videoId: string; channel?: string; title?: string }
   | { type: 'file'; name: string }
 
 /** none = sem letra, plain = só o texto, line = sincronizada por linha, word = por palavra. */
