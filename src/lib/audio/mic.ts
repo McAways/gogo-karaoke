@@ -1,10 +1,11 @@
 import { PitchDetector } from 'pitchy'
+import { PitchGate } from './pitch-gate'
+import type { PitchReading } from './pitch-gate'
 
 export type ListenMode = 'fones' | 'caixas'
 
-export interface MicSample {
-  /** Nota MIDI cantada (fracionada). null = silêncio ou som sem tom definido. */
-  midi: number | null
+/** `midi` é a nota que vale ponto; `shown`, a que se desenha (ver `PitchReading`). */
+export interface MicSample extends PitchReading {
   /** Volume de entrada, 0..1, para o medidor. */
   level: number
 }
@@ -18,13 +19,6 @@ export class MicError extends Error {
 }
 
 const FFT_SIZE = 2048
-const MIN_HZ = 70
-const MAX_HZ = 1100
-/** Abaixo disso o detector está chutando: voz cantada costuma ficar acima de 0,9. */
-const MIN_CLARITY = 0.86
-const SILENCE_DB = -52
-/** A voz precisa passar do ruído de fundo (e do som das caixas) por esta margem. */
-const GATE_MARGIN_DB = 8
 
 function toDb(rms: number): number {
   return 20 * Math.log10(Math.max(rms, 1e-7))
@@ -38,9 +32,7 @@ export class MicInput {
   private analyser: AnalyserNode | null = null
   private readonly buffer = new Float32Array(FFT_SIZE)
   private readonly detector = PitchDetector.forFloat32Array(FFT_SIZE)
-  private floorDb = -70
-  private recent: number[] = []
-  private silentFrames = 0
+  private readonly gate = new PitchGate()
   deviceLabel = ''
 
   constructor(context: AudioContext) {
@@ -92,8 +84,7 @@ export class MicInput {
     // Não é ligado à saída: o cantor não se ouve pelo app, o que evita microfonia.
     this.source.connect(highpass).connect(this.analyser)
 
-    this.floorDb = -70
-    this.recent = []
+    this.gate.reset()
   }
 
   private open(audio: MediaTrackConstraints): Promise<MediaStream> {
@@ -101,7 +92,7 @@ export class MicInput {
   }
 
   read(): MicSample {
-    if (!this.analyser) return { midi: null, level: 0 }
+    if (!this.analyser) return { midi: null, shown: null, level: 0 }
     this.analyser.getFloatTimeDomainData(this.buffer)
 
     let sum = 0
@@ -110,25 +101,7 @@ export class MicInput {
     const level = Math.min(1, Math.max(0, (db + 60) / 54))
 
     const [hz, clarity] = this.detector.findPitch(this.buffer, this.context.sampleRate)
-    const tonal = clarity >= MIN_CLARITY && hz >= MIN_HZ && hz <= MAX_HZ
-
-    // O piso de ruído só sobe com som sem tom (música das caixas, ventilador).
-    // Uma nota longa não o empurra para cima, senão ela cortaria a si mesma.
-    if (db < this.floorDb) this.floorDb = db
-    else if (!tonal) this.floorDb += Math.min(0.05, (db - this.floorDb) * 0.02)
-
-    if (!tonal || db < Math.max(SILENCE_DB, this.floorDb + GATE_MARGIN_DB)) {
-      if (++this.silentFrames > 6) this.recent = []
-      return { midi: null, level }
-    }
-    this.silentFrames = 0
-
-    const midi = 69 + 12 * Math.log2(hz / 440)
-    // Mediana de 3 amostras: remove os pulos de oitava de um quadro só.
-    this.recent.push(midi)
-    if (this.recent.length > 3) this.recent.shift()
-    const sorted = [...this.recent].sort((a, b) => a - b)
-    return { midi: sorted[sorted.length >> 1], level }
+    return { ...this.gate.push({ time: performance.now() / 1000, hz, clarity, db }), level }
   }
 
   stop(): void {

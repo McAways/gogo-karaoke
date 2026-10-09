@@ -90,13 +90,17 @@ export function PreStage({
     let raf = 0
     let shown = 0
     let lastText = ''
+    let heardAt = 0
     const tick = () => {
       raf = requestAnimationFrame(tick)
       const sample = getMic().read()
       // Sobe rápido e desce devagar, como um medidor de verdade.
       shown = sample.level > shown ? sample.level : shown * 0.92
       if (meter.current) meter.current.style.transform = `scaleX(${shown.toFixed(3)})`
-      const text = sample.midi !== null ? noteName(sample.midi) : ''
+      // O detector perde a voz por instantes o tempo todo: o nome da nota espera um pouco antes de sumir.
+      const now = performance.now()
+      if (sample.shown !== null) heardAt = now
+      const text = sample.shown !== null ? noteName(sample.shown) : now - heardAt < 400 ? lastText : ''
       if (text !== lastText && readout.current) {
         lastText = text
         readout.current.textContent = text || 'cante algo'

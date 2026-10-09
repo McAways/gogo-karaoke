@@ -110,6 +110,16 @@ describe('pontuação', () => {
     expect(result.bestStreak).toBe(0)
   })
 
+  it('espiar como uma nota seria julgada não vale ponto', () => {
+    const { lines, notes } = song()
+    const engine = new ScoreEngine(buildReference(lines, notes), exact)
+    // É o que a pista de tom usa para desenhar a voz que o detector lê com menos nitidez.
+    for (let t = 10; t < 12; t += 1 / 60) expect(engine.peek(t, targetAt(notes, t))).toMatchObject({ credit: 1, diff: 0 })
+    expect(engine.points).toBe(0)
+    expect(engine.push(10.2, 60)).toEqual(engine.peek(10.2, 60))
+    expect(engine.points).toBeGreaterThan(0)
+  })
+
   it('não pontua silêncio', () => {
     const { lines, notes } = song()
     const engine = new ScoreEngine(buildReference(lines, notes), exact)

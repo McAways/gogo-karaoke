@@ -7,6 +7,7 @@ import { buildReference } from '@/lib/scoring/reference'
 import type { ScoreReference } from '@/lib/scoring/reference'
 import { RoomScores } from '@/lib/scoring/room'
 import type { Difficulty, LyricLine, RefNote } from '@/lib/types'
+import { VoiceTrace } from './voice-trace'
 
 export interface StageSetup {
   context: AudioContext
@@ -67,18 +68,7 @@ export interface Frame {
   mic: MicSample
 }
 
-/** Ponto do rastro da voz na pista de tom. */
-export interface TrailPoint {
-  time: number
-  midi: number
-  /** Nota que deveria estar sendo cantada. null fora de uma nota. */
-  target: number | null
-  diff: number | null
-  credit: number
-}
-
-const SILENT: MicSample = { midi: null, level: 0 }
-const TRAIL_LIMIT = 400
+const SILENT: MicSample = { midi: null, shown: null, level: 0 }
 /** Quanto (s) a voz pode se afastar do instrumental antes de ser reposicionada. */
 const VOCALS_TOLERANCE = 0.045
 /** A imagem aguenta bem mais: um salto de quadro não se nota como um salto de som. */
@@ -109,7 +99,8 @@ export class StageSession {
   /** O elemento que marca o tempo: o instrumental quando há faixas separadas, senão o arquivo original. */
   readonly media: HTMLMediaElement
   readonly scoring: boolean
-  readonly trail: TrailPoint[] = []
+  /** A voz como a pista de tom a desenha. */
+  readonly trace = new VoiceTrace()
   reference: ScoreReference
   engine: ScoreEngine
 
@@ -173,10 +164,11 @@ export class StageSession {
       // O que o microfone ouve agora foi cantado sobre o som de `latency` segundos atrás.
       const sungTime = time - latency
       const judgment = this.engine.push(sungTime, sample.midi)
-      if (sample.midi !== null) {
-        this.hostVoiced++
-        this.trail.push({ time: sungTime, midi: sample.midi, target: judgment.target, diff: judgment.diff, credit: judgment.credit })
-        if (this.trail.length > TRAIL_LIMIT) this.trail.splice(0, this.trail.length - TRAIL_LIMIT)
+      if (sample.midi !== null) this.hostVoiced++
+      if (sample.shown !== null) {
+        // Quem vale ponto é a leitura exigente (acima). A tolerante só mantém o desenho contínuo.
+        const seen = sample.midi !== null ? judgment : this.engine.peek(sungTime, sample.shown)
+        this.trace.push(sungTime, performance.now() / 1000, sample.shown, seen.target, seen.credit >= 0.5, this.noteNear(sungTime))
       }
 
       const closed = this.engine.closeLines(sungTime)
@@ -220,6 +212,23 @@ export class StageSession {
       if (element.paused && !element.ended) void element.play().catch(() => {})
       if (Math.abs(element.currentTime - clock.currentTime) > tolerance) element.currentTime = clock.currentTime
     }
+  }
+
+  /** Altura da nota do guia mais próxima de `time`: é onde a voz é desenhada quando não há nota tocando. */
+  private noteNear(time: number): number {
+    const notes = this.reference.laneNotes
+    if (notes.length === 0) return 60
+    let lo = 0
+    let hi = notes.length
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1
+      if (notes[mid].end <= time) lo = mid + 1
+      else hi = mid
+    }
+    // `lo` é a primeira nota que ainda não terminou; a anterior já passou.
+    const next = notes[Math.min(lo, notes.length - 1)]
+    const previous = notes[Math.max(0, lo - 1)]
+    return time - previous.end < next.start - time ? previous.midi : next.midi
   }
 
   private newEngine(): ScoreEngine {
@@ -311,14 +320,14 @@ export class StageSession {
     const target = Math.min(Math.max(0, time), Math.max(0, this.duration - 0.05))
     this.media.currentTime = target
     for (const { element } of this.followers) element.currentTime = target
-    this.trail.length = 0
+    this.trace.clear()
     this.room.mark(Date.now())
   }
 
   restart(): void {
     this.media.currentTime = 0
     for (const { element } of this.followers) element.currentTime = 0
-    this.trail.length = 0
+    this.trace.clear()
     this.reference = this.buildReference()
     this.engine = this.newEngine()
     this.room.restart(this.reference)
@@ -337,7 +346,7 @@ export class StageSession {
     this.engine = this.newEngine()
     this.engine.adopt(previous)
     this.room.rebase(this.reference, this.clock.now() - this.setup.latency)
-    this.trail.length = 0
+    this.trace.clear()
     this.update({ offset, points: this.engine.points, streak: this.engine.currentStreak })
   }
 

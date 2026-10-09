@@ -21,9 +21,9 @@ function firstEndingAfter(items: ReadonlyArray<{ end: number }>, time: number): 
 }
 
 /**
- * Pista de tom: as notas do guia correm da direita para a esquerda e o rastro da
- * voz mostra onde o cantor está em relação a elas. Como a pontuação ignora a oitava,
- * a voz é desenhada na oitava mais próxima da nota alvo.
+ * Pista de tom: as notas do guia correm da direita para a esquerda e a linha da voz
+ * mostra onde o cantor está em relação a elas. Como a pontuação ignora a oitava, a voz
+ * é desenhada na oitava mais próxima da nota alvo (quem cuida disso é `VoiceTrace`).
  */
 export function PitchLane({ session, className }: { session: StageSession; className?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -36,6 +36,17 @@ export function PitchLane({ session, className }: { session: StageSession; class
     const styles = getComputedStyle(canvas)
     const accent = styles.getPropertyValue('--accent').trim() || '#c9f24a'
     const ink = styles.getPropertyValue('--ink').trim() || '#f4f4ee'
+    // As cores do tema vêm em oklch; o degradê da linha da voz precisa delas com transparência.
+    const toRgb = (color: string): string => {
+      const probe = document.createElement('canvas').getContext('2d')
+      if (!probe) return '244, 244, 238'
+      probe.fillStyle = color
+      probe.fillRect(0, 0, 1, 1)
+      const [red, green, blue] = probe.getImageData(0, 0, 1, 1).data
+      return `${red}, ${green}, ${blue}`
+    }
+    const accentRgb = toRgb(accent)
+    const inkRgb = toRgb(ink)
 
     let width = 0
     let height = 0
@@ -56,7 +67,7 @@ export function PitchLane({ session, className }: { session: StageSession; class
     let viewHigh = 67
     let settled = false
 
-    const stop = session.onFrame(({ time, mic }) => {
+    const stop = session.onFrame(({ time }) => {
       if (width === 0 || height === 0) return
       context.clearRect(0, 0, width, height)
 
@@ -134,40 +145,44 @@ export function PitchLane({ session, className }: { session: StageSession; class
       context.fillStyle = ink
       context.fillRect(nowX - 0.75, 0, 1.5, height)
 
-      // 5. Rastro da voz.
-      const span = viewHigh - viewLow
-      const fold = (midi: number) => {
-        // Sem nota alvo, traz a voz para dentro da faixa visível mudando só a oitava.
-        const center = (viewLow + viewHigh) / 2
-        let value = midi
-        while (value - center > 6) value -= 12
-        while (center - value > 6) value += 12
-        return Math.min(viewHigh + span * 0.04, Math.max(viewLow - span * 0.04, value))
+      // 5. Linha da voz: um traço contínuo por trecho cantado, apagando para a esquerda.
+      // Um traço junta os pontos seguidos de mesma cor; um ponto sozinho (ruído) não vira traço.
+      const fading = (rgb: string, strength: number) => {
+        const gradient = context.createLinearGradient(0, 0, nowX, 0)
+        gradient.addColorStop(0, `rgba(${rgb}, 0)`)
+        gradient.addColorStop(1, `rgba(${rgb}, ${strength})`)
+        return gradient
       }
-      const shown = (point: { midi: number; target: number | null; diff: number | null }) =>
-        point.target !== null && point.diff !== null ? point.target + point.diff : fold(point.midi)
-
-      const { trail } = session
-      const radius = Math.max(2.2, thickness * 0.3)
-      for (let i = trail.length - 1; i >= 0; i--) {
-        const point = trail[i]
-        if (point.time < from) break
-        const age = (time - point.time) / PAST
-        context.globalAlpha = Math.max(0, 1 - age) * (point.credit >= 0.5 ? 1 : 0.55)
-        context.fillStyle = point.credit >= 0.5 ? accent : ink
+      const onPitchStroke = fading(accentRgb, 1)
+      const offPitchStroke = fading(inkRgb, 0.55)
+      const { points } = session.trace
+      context.globalAlpha = 1
+      context.lineCap = 'round'
+      context.lineJoin = 'round'
+      context.lineWidth = Math.max(3.5, thickness * 0.5)
+      let next = points.length
+      while (next > 0 && points[next - 1].time >= from) next--
+      next = Math.max(1, next)
+      while (next < points.length) {
+        if (points[next].start) {
+          next++
+          continue
+        }
+        const onPitch = points[next].onPitch
         context.beginPath()
-        context.arc(x(point.time), y(shown(point)), radius, 0, Math.PI * 2)
-        context.fill()
+        context.moveTo(x(points[next - 1].time), y(points[next - 1].value))
+        for (; next < points.length && !points[next].start && points[next].onPitch === onPitch; next++) context.lineTo(x(points[next].time), y(points[next].value))
+        context.strokeStyle = onPitch ? onPitchStroke : offPitchStroke
+        context.stroke()
       }
 
-      // 6. Cursor: onde a voz está neste instante.
-      const last = trail[trail.length - 1]
-      if (mic.midi !== null && last && time - last.time < 0.35) {
-        const onPitch = last.credit >= 0.5
-        context.globalAlpha = 1
-        context.fillStyle = onPitch ? accent : ink
+      // 6. Cursor: onde a voz está neste instante. Espera um pouco antes de sumir, e some aos poucos.
+      const cursor = session.trace.cursor(performance.now() / 1000)
+      if (cursor) {
+        context.globalAlpha = cursor.strength
+        context.fillStyle = cursor.onPitch ? accent : ink
         context.beginPath()
-        context.arc(nowX, y(shown(last)), thickness * 0.62, 0, Math.PI * 2)
+        context.arc(nowX, y(cursor.value), thickness * 0.62, 0, Math.PI * 2)
         context.fill()
       }
       context.globalAlpha = 1
