@@ -8,7 +8,7 @@ import { formatOffset } from './format'
 import { alignToAudio, downloadVideo, fetchDownloaded, fetchImage, helperStatusCached, separateMedia } from './helper'
 import type { AlignStage, SeparationStage, VideoSummary } from './helper'
 import { lrcToLines } from './lrc'
-import { distinctMatches, isPlausiblePlain, pickAutomatic, recordToDoc, searchLyrics } from './lrclib'
+import { distinctMatches, isPlausiblePlain, pickAutomatic, rankRecords, recordToDoc, resemblesSong, searchLyrics, songQuery } from './lrclib'
 import type { LrclibRecord, LyricsMatch } from './lrclib'
 import { distributeWords, estimateLineDuration } from './lyrics-timing'
 import { packedBytes, unpackMelody } from './package'
@@ -45,6 +45,10 @@ export interface ImportPreset {
   /** Letra que veio na lista: aplicada no lugar da busca. */
   lyrics?: ExportedLyrics
   lyricOffset?: number
+  /** Letras que a tela de busca já achou para este vídeo, da melhor para a pior: são as que a música recebe. */
+  records?: LrclibRecord[]
+  /** O que a pessoa digitou para chegar ao vídeo: ajuda a reconhecer a letra. */
+  typed?: string
   /** Notas anotadas à mão (UltraStar). */
   notes?: RefNote[]
 }
@@ -103,7 +107,7 @@ export async function importYoutube(video: VideoSummary, kind: MediaKind, report
     mediaFile,
     mime: result.mime,
     size: result.size,
-    source: { type: 'youtube', url: info.url, videoId: info.id, channel: info.channel },
+    source: { type: 'youtube', url: info.url, videoId: info.id, channel: info.channel, title: info.title },
   }
 
   const cover = (await fetchImage(info.thumbnail)) ?? (await fetchImage(`https://i.ytimg.com/vi/${info.id}/mqdefault.jpg`))
@@ -166,7 +170,7 @@ async function finishImport(song: Song, report: Report, signal?: AbortSignal, pr
     note = 'Letra trazida da lista.'
   } else {
     try {
-      const found = await autoLyrics(song, signal, mayAlign)
+      const found = await autoLyrics(song, signal, mayAlign, preset)
       note = found.note
       matches = found.matches
     } catch (err) {
@@ -326,15 +330,34 @@ export async function importPackage(pack: OpenPackage, report: Report, signal?: 
  * sozinha: ela aparece parada na tela e passa a impressão de que a sincronia quebrou.
  * A exceção é `plainIsEnough`: quando a letra vai ser sincronizada pelo áudio logo em
  * seguida, o texto basta.
+ *
+ * `hint` é o que a tela de busca já sabia antes do download. Se ela achou uma letra confiável,
+ * é essa que vale, sem perguntar de novo ao banco: o que a tela mostrou é o que a música recebe.
  */
-export async function autoLyrics(song: Song, signal?: AbortSignal, plainIsEnough = false): Promise<{ applied: boolean; note: string; matches: LyricsMatch[] }> {
-  const query = { title: song.title, artist: song.artist, duration: song.duration }
-  const matches = await searchLyrics(query, signal)
+export async function autoLyrics(
+  song: Song,
+  signal?: AbortSignal,
+  plainIsEnough = false,
+  hint: Pick<ImportPreset, 'records' | 'typed'> = {},
+): Promise<{ applied: boolean; note: string; matches: LyricsMatch[] }> {
+  const query = songQuery(song, hint.typed)
+  const known = hint.records ?? []
+  let matches = rankRecords(known, query)
+  if (!pickAutomatic(matches, query)?.confident) {
+    try {
+      matches = await searchLyrics(query, signal, known)
+    } catch (err) {
+      // O banco falhou agora, mas a letra achada antes do download continua valendo.
+      if (signal?.aborted || known.length === 0) throw err
+    }
+  }
   const choice = pickAutomatic(matches, query)
 
   if (!choice) {
-    if (matches.length === 0) return { applied: false, matches, note: 'Nenhuma letra encontrada. Dá para colar e sincronizar na página da música.' }
-    const plain = plainIsEnough ? matches.find((m) => isPlausiblePlain(m, query)) : undefined
+    // A busca vai abrindo e traz junto música de nome parecido: só conta o que pode ser esta.
+    const related = matches.filter(resemblesSong)
+    if (related.length === 0) return { applied: false, matches, note: 'Nenhuma letra encontrada. Dá para buscar com outras palavras em “Buscar letra”, na página da música.' }
+    const plain = plainIsEnough ? matches.find(isPlausiblePlain) : undefined
     if (plain) {
       const doc = await applyLrclibRecord(song.id, plain.record, song.duration)
       if (doc) return { applied: true, matches, note: 'Só achei a letra sem sincronia.' }
@@ -342,7 +365,7 @@ export async function autoLyrics(song: Song, signal?: AbortSignal, plainIsEnough
     return {
       applied: false,
       matches,
-      note: matches.some((m) => m.synced)
+      note: related.some((m) => m.synced)
         ? 'Achei letras sincronizadas, mas nenhuma parece ser desta gravação. Veja as opções em “Buscar letra”, na página da música.'
         : 'Só achei letra sem sincronia. Dá para usá-la e marcar os tempos no editor, na página da música.',
     }
@@ -599,7 +622,7 @@ export async function fitLyrics(songId: string, matches?: LyricsMatch[], signal?
   // Letra importada de arquivo ou marcada à mão é do usuário: só confere o atraso, não troca.
   const mayReplace = !current || current.source === 'lrclib'
   if (mayReplace) {
-    const list = matches ?? (await searchLyrics({ title: song.title, artist: song.artist, duration: song.duration }, signal))
+    const list = matches ?? (await searchLyrics(songQuery(song), signal))
     for (const match of distinctMatches(list).filter((m) => m.synced).slice(0, MAX_CANDIDATES)) {
       // A sincronia em uso já entrou acima.
       if (current?.lrclibId !== undefined && match.sameTiming.includes(current.lrclibId)) continue

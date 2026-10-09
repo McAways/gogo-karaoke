@@ -9,8 +9,8 @@ import { HelperMissing, useHelperPresence } from '@/components/helper-guide'
 import { formatDuration } from '@/lib/format'
 import { helperStatus, isYoutubeUrl, searchVideos, spotifyLink, updateDownloader, videoInfo } from '@/lib/helper'
 import type { HelperStatus, VideoSummary } from '@/lib/helper'
-import { lyricsAvailability } from '@/lib/lrclib'
-import type { LyricsAvailability } from '@/lib/lrclib'
+import { lyricsAvailability, lyricsForVideo } from '@/lib/lrclib'
+import type { AvailableLyrics, LyricsAvailability } from '@/lib/lrclib'
 import { isPackage } from '@/lib/package'
 import { parseExport, searchQueryFor, spotifyLinkKind, tidyTrackTitle } from '@/lib/transfer'
 import { useBatch } from '@/state/batch'
@@ -21,7 +21,7 @@ import { toast } from '@/state/toasts'
 type SearchState = { phase: 'idle' } | { phase: 'loading' } | { phase: 'done'; results: VideoSummary[] } | { phase: 'error'; message: string }
 
 /** O que o banco de letras diz de cada vídeo. null = ainda conferindo; 'falhou' = o banco não respondeu. */
-type LyricsCheck = Map<string, LyricsAvailability> | null | 'falhou'
+type LyricsCheck = Map<string, AvailableLyrics> | null | 'falhou'
 
 function ResultRow({
   video,
@@ -148,6 +148,8 @@ export function AddPage() {
   /** true quando o resultado veio de um link colado, não de uma busca por nome. */
   const [direct, setDirect] = useState(false)
   const [queued, setQueued] = useState<Set<string>>(new Set())
+  /** O texto da busca que trouxe os resultados na tela. Vazio quando foi um link. */
+  const [searched, setSearched] = useState('')
   const pending = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -204,11 +206,14 @@ export function AddPage() {
       const results = isYoutubeUrl(text) ? [await videoInfo(text, controller.signal)] : await searchVideos(text, controller.signal)
       if (controller.signal.aborted) return
       setSearch({ phase: 'done', results })
+      const pasted = isYoutubeUrl(text)
+      setSearched(pasted ? '' : text)
 
       // A letra é conferida à parte: se o banco de letras falhar, a busca continua valendo e mostra tudo.
-      const hintQuery = isYoutubeUrl(text) ? results[0]?.title ?? '' : text
-      if (!hintQuery) return setLyricsOf('falhou')
-      lyricsAvailability(hintQuery, results, controller.signal).then(
+      // Link colado é um vídeo só, então vale a busca completa; a lista de uma busca sai de um pedido só.
+      if (results.length === 0) return setLyricsOf('falhou')
+      const check = pasted ? lyricsForVideo(results[0], controller.signal) : lyricsAvailability(text, results, controller.signal)
+      check.then(
         (found) => !controller.signal.aborted && setLyricsOf(found),
         () => !controller.signal.aborted && setLyricsOf('falhou'),
       )
@@ -219,7 +224,9 @@ export function AddPage() {
   }
 
   const add = (video: VideoSummary) => {
-    addYoutube(video, kind)
+    // A letra que esta tela achou para o vídeo vai junto: é a que a música recebe, sem nova busca.
+    const found = lyricsOf instanceof Map ? lyricsOf.get(video.id) : undefined
+    addYoutube(video, kind, { ...(found ? { records: found.matches.map((match) => match.record) } : {}), ...(searched ? { typed: searched } : {}) })
     setQueued((current) => new Set(current).add(video.id))
   }
 
@@ -228,7 +235,7 @@ export function AddPage() {
   const results = search.phase === 'done' ? search.results : []
   const checked = lyricsOf instanceof Map ? lyricsOf : null
   const usable = (video: VideoSummary) => {
-    const kind = checked?.get(video.id)
+    const kind = checked?.get(video.id)?.kind
     return kind === 'exata' || (kind === 'texto' && audioSync)
   }
   const filtering = onlyWithLyrics && !showAll && !direct && checked !== null
@@ -344,7 +351,7 @@ export function AddPage() {
               {shown.length > 0 && (
                 <ul className="mt-6 space-y-1">
                   {shown.map((video) => (
-                    <ResultRow key={video.id} video={video} lyrics={checked ? (checked.get(video.id) ?? null) : undefined} audioSync={audioSync} queued={queued.has(video.id)} onAdd={() => add(video)} />
+                    <ResultRow key={video.id} video={video} lyrics={checked ? (checked.get(video.id)?.kind ?? null) : undefined} audioSync={audioSync} queued={queued.has(video.id)} onAdd={() => add(video)} />
                   ))}
                 </ul>
               )}

@@ -25,7 +25,7 @@ import { forgetHelperStatus, helperStatusCached, installSeparator } from '@/lib/
 import type { HelperStatus } from '@/lib/helper'
 import { applyLrclibRecord, applyLyrics, applyUltraStar, canAlign, enqueueAnalysis, fitLyrics, revertAudioSync, separateAndRefit, syncLyricsToAudio } from '@/lib/importer'
 import { lrcToLines, looksLikeLrc } from '@/lib/lrc'
-import { distinctMatches, searchLyrics } from '@/lib/lrclib'
+import { distinctMatches, resemblesSong, searchLyrics, searchLyricsByText, songQuery } from '@/lib/lrclib'
 import type { LyricsMatch } from '@/lib/lrclib'
 import { getLyrics, getMelody, listScores } from '@/lib/storage/db'
 import type { Difficulty, LyricsDoc, MelodyDoc, ScoreRecord, Song } from '@/lib/types'
@@ -106,18 +106,34 @@ function LyricsSearchDialog({
 }) {
   const [state, setState] = useState<{ phase: 'loading' } | { phase: 'done'; matches: LyricsMatch[] } | { phase: 'error'; message: string }>({ phase: 'loading' })
   const [applying, setApplying] = useState<number | null>(null)
+  const [words, setWords] = useState('')
+  /** As palavras que a pessoa mandou buscar. null = a busca do app, pelo que ele sabe da música. */
+  const [custom, setCustom] = useState<string | null>(null)
+
+  // Cada vez que a tela abre, volta à busca do app.
+  const [wasOpen, setWasOpen] = useState(false)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) {
+      setCustom(null)
+      setWords([song.artist, song.title].filter(Boolean).join(' '))
+    }
+  }
 
   useEffect(() => {
     if (!open) return
     const controller = new AbortController()
     setState({ phase: 'loading' })
-    searchLyrics({ title: song.title, artist: song.artist, duration: song.duration }, controller.signal)
-      .then((matches) => setState({ phase: 'done', matches: distinctMatches(matches) }))
+    const search = custom === null ? searchLyrics(songQuery(song), controller.signal) : searchLyricsByText(custom, song.duration, controller.signal)
+    search
+      // A busca do app vai abrindo até achar, e traz junto música de mesmo nome de outros artistas: ficam as que parecem ser esta.
+      .then((matches) => setState({ phase: 'done', matches: distinctMatches(custom === null ? matches.filter(resemblesSong) : matches) }))
       .catch((err: unknown) => {
         if (!controller.signal.aborted) setState({ phase: 'error', message: err instanceof Error ? err.message : 'A busca falhou.' })
       })
     return () => controller.abort()
-  }, [open, song.title, song.artist, song.duration])
+    // O objeto da música muda a cada análise que termina; a busca só depende destes campos.
+  }, [open, custom, song.title, song.artist, song.duration])
 
   const use = async (match: LyricsMatch) => {
     setApplying(match.record.id)
@@ -132,7 +148,8 @@ function LyricsSearchDialog({
     }
   }
 
-  const synced = state.phase === 'done' ? state.matches.filter((m) => m.synced) : []
+  // As primeiras são as mais prováveis; a lista inteira de uma música famosa passa de vinte.
+  const synced = state.phase === 'done' ? state.matches.filter((m) => m.synced).slice(0, 8) : []
   const plain = state.phase === 'done' ? state.matches.filter((m) => !m.synced).slice(0, 3) : []
 
   const useButton = (match: LyricsMatch) => {
@@ -158,9 +175,28 @@ function LyricsSearchDialog({
       open={open}
       onOpenChange={(next) => !next && onClose()}
       title="Escolher a letra"
-      description={`Busca por “${song.title}”${song.artist ? ` de ${song.artist}` : ''}. Cada opção é uma sincronia diferente: escolha a que tem a voz entrando na mesma hora da sua gravação.`}
+      description="Cada opção é uma sincronia diferente: escolha a que tem a voz entrando na mesma hora da sua gravação."
       wide
     >
+      <form
+        className="mb-5"
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (words.trim()) setCustom(words.trim())
+        }}
+      >
+        <Field label="Buscar com outras palavras" hint="O banco só acha a letra que tem todas as palavras da busca. Use poucas: o nome da música e o artista.">
+          {(field) => (
+            <div className="flex gap-2">
+              <TextInput {...field} type="search" value={words} onChange={(event) => setWords(event.target.value)} autoComplete="off" className="flex-1" />
+              <Button type="submit" disabled={!words.trim() || state.phase === 'loading'}>
+                Buscar
+              </Button>
+            </div>
+          )}
+        </Field>
+      </form>
+
       {state.phase === 'loading' && (
         <ul aria-busy="true" className="space-y-3">
           {Array.from({ length: 3 }, (_, i) => (
@@ -170,7 +206,11 @@ function LyricsSearchDialog({
       )}
       {state.phase === 'error' && <p className="text-danger">{state.message}</p>}
       {state.phase === 'done' && state.matches.length === 0 && (
-        <p className="text-soft">Nada encontrado. Confira o nome da música e do artista em “Editar dados”, ou cole a letra no editor.</p>
+        <p className="text-soft">
+          {custom === null
+            ? 'Nada encontrado com o nome desta música. Tente no campo acima com outras palavras, ou cole a letra no editor.'
+            : 'Nada encontrado com essas palavras. Tente com menos: só o nome da música, ou o nome e o artista.'}
+        </p>
       )}
 
       {synced.length > 0 && (
@@ -187,7 +227,10 @@ function LyricsSearchDialog({
                     A voz entra aos {formatDuration(match.firstVerse ?? 0)}
                     {match.record.hasWordSync && <span className="ml-2 text-[13px] font-semibold text-accent-ink">palavra por palavra</span>}
                   </p>
-                  <p className="truncate text-sm text-soft">{match.record.albumName || match.record.artistName}</p>
+                  <p className="truncate text-sm text-soft">
+                    {match.record.trackName}, {match.record.artistName}
+                    {match.record.albumName ? `, ${match.record.albumName}` : ''}
+                  </p>
                   <p className={cn('mt-0.5 text-[13px]', overflows ? 'text-danger' : 'text-faint')}>
                     {overflows ? 'A letra continua depois do fim da sua gravação.' : copies === 1 ? 'Um registro no banco.' : `${copies} registros iguais no banco.`}
                   </p>

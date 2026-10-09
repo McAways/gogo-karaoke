@@ -116,7 +116,13 @@ const isRecord = (value: unknown): value is Record<string, unknown> => typeof va
 function readSource(raw: unknown): SongSource | null {
   if (!isRecord(raw)) return null
   if (raw.type === 'youtube' && typeof raw.url === 'string' && typeof raw.videoId === 'string') {
-    return { type: 'youtube', url: raw.url, videoId: raw.videoId, ...(typeof raw.channel === 'string' ? { channel: raw.channel } : {}) }
+    return {
+      type: 'youtube',
+      url: raw.url,
+      videoId: raw.videoId,
+      ...(typeof raw.channel === 'string' ? { channel: raw.channel } : {}),
+      ...(typeof raw.title === 'string' ? { title: raw.title } : {}),
+    }
   }
   if (raw.type === 'file' && typeof raw.name === 'string') return { type: 'file', name: raw.name }
   return null
